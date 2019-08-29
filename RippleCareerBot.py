@@ -13,6 +13,8 @@ TwitterApi = None
 
 def postTwitterUpdate(message):
 
+    global TwitterApi
+
     if TwitterApi is None:
 
         with open('config.json', 'r') as configFile:
