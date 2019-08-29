@@ -1,3 +1,5 @@
+#!/usr/local/bin/python3.6
+
 import urllib.request
 import json
 import os.path
