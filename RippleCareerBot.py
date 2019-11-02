@@ -65,59 +65,66 @@ def main():
     # Load jobs json
     dataStart = html.find('{', html.find('ghjb_json'))
     dataEnd = findMatchingClosingBrace(html, dataStart)
-    data = json.loads(html[dataStart:dataEnd+1])
+    try:
+        data = json.loads(html[dataStart:dataEnd+1])
 
-    # Keep only relevant data, ordered by department
-    departments = {}
+        # Keep only relevant data, ordered by department
+        departments = {}
 
-    for job in data['jobs']:
+        for job in data['jobs']:
 
-        for department in job['departments']:
+            for department in job['departments']:
 
-            if department['name'] not in departments:
+                if department['name'] not in departments:
 
-                departments[department['name']] = []
+                    departments[department['name']] = []
 
-            departments[department['name']].append({
-                'title': job['title'],
-                'absolute_url': job['absolute_url'],
-                'id': job['id'],
-                'location': job['location'],
-                'updated_at': job['updated_at']
-            })
+                departments[department['name']].append({
+                    'title': job['title'],
+                    'absolute_url': job['absolute_url'],
+                    'id': job['id'],
+                    'location': job['location'],
+                    'updated_at': job['updated_at']
+                })
 
 
-    # Check if jobDB exists and load it
-    jobDBFileExists = False
-    jobDB = []
+        # Check if jobDB exists and load it
+        jobDBFileExists = False
+        jobDB = []
 
-    if os.path.exists('jobDB.json'):
-        with open('jobDB.json') as jsonFile:
-            jobDBFileExists = True
-            jobDB = json.load(jsonFile)
+        if os.path.exists('jobDB.json'):
+            with open('jobDB.json') as jsonFile:
+                jobDBFileExists = True
+                jobDB = json.load(jsonFile)
 
-    # Build new jobIDs data
-    jobIDs = []
-    newJobs = []
+        # Build new jobIDs data
+        jobIDs = []
+        newJobs = []
 
-    for department in sorted(departments.keys()):
-        for job in departments[department]:
-            jobIDs.append(job['id'])
+        for department in sorted(departments.keys()):
+            for job in departments[department]:
+                jobIDs.append(job['id'])
 
-            if jobDBFileExists and job['id'] not in jobDB:
-                newJobs.append(job)
-                jobDB.append(job['id'])
+                if jobDBFileExists and job['id'] not in jobDB:
+                    newJobs.append(job)
+                    jobDB.append(job['id'])
 
-    # Create a Twitter update for every new job
-    for job in newJobs:
-        postTwitterUpdate(f"New open position at Ripple:\n\n- {job['title']} ({job['location']['name']})\n\nMore details at: {job['absolute_url']}")
+        # Create a Twitter update for every new job
+        for job in newJobs:
+            postTwitterUpdate(f"New open position at Ripple:\n\n- {job['title']} ({job['location']['name']})\n\nMore details at: {job['absolute_url']}")
 
-    # Update jobDB
-    with open('jobDB.json', 'w') as outfile:
-        if jobDBFileExists:
-            json.dump(jobDB, outfile, indent=4)
-        else:
-            json.dump(jobIDs, outfile, indent=4)
+        # Update jobDB
+        with open('jobDB.json', 'w') as outfile:
+            if jobDBFileExists:
+                json.dump(jobDB, outfile, indent=4)
+            else:
+                json.dump(jobIDs, outfile, indent=4)
+
+        # Output new jobs to the log
+        print([job['id'] for job in newJobs])
+
+    except json.decoder.JSONDecodeError:
+        print('JSONDecodeError')
 
 
 if __name__=='__main__':
