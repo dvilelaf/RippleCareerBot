@@ -1,7 +1,7 @@
 import datetime
 import re
 from matplotlib import pyplot as plt
-
+import matplotlib.dates as mdates
 
 idListRegex = r'^\[(\d*, )*\d*\]$'
 
@@ -38,7 +38,11 @@ for i in range(len(times)):
 
 print(sum(data.values()))
 
-plt.figure()
+fig, ax = plt.subplots()
 plt.bar(data.keys(), data.values())
 plt.yticks([0, 1, 2, 3, 4, 5])
+
+ax.xaxis.set_major_locator(mdates.WeekdayLocator())
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
+
 plt.show()
