@@ -45,4 +45,7 @@ plt.yticks([0, 1, 2, 3, 4, 5])
 ax.xaxis.set_major_locator(mdates.WeekdayLocator())
 ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
 
+plt.ylabel('Number of new positions')
+plt.title('New open position announcements at Ripple.com')
+
 plt.show()
