@@ -2,3 +2,7 @@
 __pycache__/
 
 jobDB.json
+
+log.txt
+
+TweetedRippleOpenPositions.log
