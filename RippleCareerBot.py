@@ -1,17 +1,12 @@
-#!/bin/env python3.6
-
-import urllib.request
-import json
-import os.path
+import requests
+from bs4 import BeautifulSoup
 import twitter
-
-try:
-    from urllib.request import urlopen
-except:
-    from urllib2 import urlopen
-
+import os.path
+import time
+import json
 
 TwitterApi = None
+
 
 def postTwitterUpdate(message):
 
@@ -30,103 +25,57 @@ def postTwitterUpdate(message):
     return TwitterApi.PostUpdate(message)
 
 
-def findMatchingClosingBrace(string, firstPos):
+def getOpenPositions():
+    page = requests.get('https://boards.greenhouse.io/ripple/')
+    soup = BeautifulSoup(page.content, 'html.parser')
 
-    found = False
-    pos = firstPos
-    i = 1
+    departments = {}
 
-    while (not found):
+    categories = soup.find_all(class_='level-0')
 
-        openPos = string.find('{', pos+1)
-        closePos = string.find('}', pos+1)
+    for category in categories:
 
-        if (openPos == -1 and closePos == -1):
-            return -1
-        elif (openPos == -1 or (openPos != -1 and (openPos > closePos))):
-            i-=1
-            pos = closePos
-        elif (closePos == -1 or closePos != -1 and (openPos < closePos)):
-            i+=1
-            pos = openPos
+        categoryName = category.find('h2').text.strip()
+        departments[categoryName] = []
 
-        if (i == 0):
-            found = True
+        jobs = category.find_all(class_='opening')
 
-    return pos
+        for job in jobs:
+
+            jobName = job.find('a').text.strip()
+            jobLink = 'https://boards.greenhouse.io' + job.find('a', href=True)['href']
+            jobID = jobLink.split('/')[-1]
+            jobLocation = job.find(class_='location').text.strip()
+
+            departments[categoryName].append({'name': jobName,
+                                              'location': jobLocation,
+                                              'link': jobLink,
+                                              'id': jobID})
+    return departments
 
 
 def main():
 
-    # Download HTML
-    webUrl = urllib.request.urlopen('https://www.ripple.com/company/careers/all-jobs')
-    html = webUrl.read().decode('utf-8')
+    openPositions = getOpenPositions()
+    oldPositionsFileName = 'TweetedRippleOpenPositions.log'
 
-    # Load jobs json
-    dataStart = html.find('{', html.find('ghjb_json'))
-    dataEnd = findMatchingClosingBrace(html, dataStart)
-    try:
-        data = json.loads(html[dataStart:dataEnd+1])
+    if os.path.exists(oldPositionsFileName):
+        with open(oldPositionsFileName, 'r') as DBfile:
+            oldPositionIDs = [int(i) for i in DBfile.readlines()]
 
-        # Keep only relevant data, ordered by department
-        departments = {}
-
-        for job in data['jobs']:
-
-            for department in job['departments']:
-
-                if department['name'] not in departments:
-
-                    departments[department['name']] = []
-
-                departments[department['name']].append({
-                    'title': job['title'],
-                    'absolute_url': job['absolute_url'],
-                    'id': job['id'],
-                    'location': job['location'],
-                    'updated_at': job['updated_at']
-                })
-
-
-        # Check if jobDB exists and load it
-        jobDBFileExists = False
-        jobDB = []
-
-        if os.path.exists('jobDB.json'):
-            with open('jobDB.json') as jsonFile:
-                jobDBFileExists = True
-                jobDB = json.load(jsonFile)
-
-        # Build new jobIDs data
-        jobIDs = []
-        newJobs = []
-
-        for department in sorted(departments.keys()):
-            for job in departments[department]:
-                jobIDs.append(job['id'])
-
-                if jobDBFileExists and job['id'] not in jobDB:
-                    newJobs.append(job)
-                    jobDB.append(job['id'])
-
-        # Create a Twitter update for every new job
-        for job in newJobs:
-            postTwitterUpdate(f"New open position at Ripple:\n\n- {job['title']} ({job['location']['name']})\n\nMore details at: {job['absolute_url']}")
-
-        # Update jobDB
-        with open('jobDB.json', 'w') as outfile:
-            if jobDBFileExists:
-                json.dump(jobDB, outfile, indent=4)
-            else:
-                json.dump(jobIDs, outfile, indent=4)
-
-        # Output new jobs to the log
-        print([job['id'] for job in newJobs])
-
-    except json.decoder.JSONDecodeError:
-        print('JSONDecodeError')
+        with open(oldPositionsFileName, 'a') as DBfile:
+            for department in openPositions.values():
+                for job in department:
+                    if int(job['id']) not in oldPositionIDs:
+                        postTwitterUpdate(f"New open position at Ripple:\n\n- {job['name']} ({job['location']})\n\nMore details at: {job['link']}")
+                        DBfile.write(job['id'] + '\n')
+                        time.sleep(3)
+    else:
+        with open(oldPositionsFileName, 'w') as DBfile:
+            for department in openPositions.values():
+                for job in department:
+                    DBfile.write(job['id'] + '\n')
 
 
 if __name__=='__main__':
-
     main()
